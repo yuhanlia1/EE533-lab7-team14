@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<nf:module xmlns:nf="http://www.NetFPGA.org/NF2_register_system"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.NetFPGA.org/NF2_register_system NF2_register_system.xsd ">
+
+    <nf:name>gpu_datapath</nf:name>
+    <nf:prefix>gpu_datapath</nf:prefix>
+    <nf:location>udp</nf:location>
+    <nf:description>Registers for GPU datapath accelerator</nf:description>
+    <nf:blocksize>64</nf:blocksize>
+
+    <nf:registers>
+
+        <!-- ================= Software Registers ================= -->
+
+        <nf:register>
+            <nf:name>sw_control</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_a_base</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_b_base</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_c_base</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_n_words</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_imem_addr</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_imem_wdata</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_imem_we</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_dmem_addr</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_dmem_wlo</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_dmem_whi</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>sw_dmem_we</nf:name>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+
+
+        <!-- ================= Hardware Registers ================= -->
+
+        <nf:register>
+            <nf:name>hw_dbg_pc</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>hw_dbg_ir</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>hw_dbg_tid</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>hw_dbg_lastst</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>hw_dmem_rlo</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+        <nf:register>
+            <nf:name>hw_dmem_rhi</nf:name>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+
+    </nf:registers>
+</nf:module>
