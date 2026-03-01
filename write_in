@@ -1,0 +1,212 @@
+#!/usr/bin/perl -w
+use strict;
+
+# ===============================
+# Register addresses
+# ===============================
+
+my $SW_CONTROL      = 0x2000100;
+my $SW_A_BASE       = 0x2000104;
+my $SW_B_BASE       = 0x2000108;
+my $SW_C_BASE       = 0x200010C;
+my $SW_N_WORDS      = 0x2000110;
+
+my $SW_IMEM_ADDR    = 0x2000114;
+my $SW_IMEM_WDATA   = 0x2000118;
+my $SW_IMEM_WE      = 0x200011C;
+
+my $SW_DMEM_ADDR    = 0x2000120;
+my $SW_DMEM_WLO     = 0x2000124;
+my $SW_DMEM_WHI     = 0x2000128;
+my $SW_DMEM_WE      = 0x200012C;
+
+# ===============================
+# Hardware Registers
+# ===============================
+my $HW_DBG_PC       = 0x2000130;
+my $HW_DBG_IR       = 0x2000134;
+my $HW_DBG_TID      = 0x2000138;
+my $HW_DBG_LASTST   = 0x200013C;
+my $HW_DMEM_RLO     = 0x2000140;
+my $HW_DMEM_RHI     = 0x2000144;
+
+# ===============================
+# Helpers
+# ===============================
+
+sub regwrite {
+    my ($addr, $data) = @_;
+    system("regwrite", sprintf("0x%08x", $addr),
+                      sprintf("0x%08x", $data));
+}
+
+sub tiny_delay {
+    select(undef, undef, undef, 0.001);
+}
+
+# ===============================
+# IMEM write
+# ===============================
+
+sub imem_write {
+    my ($addr, $inst) = @_;
+    regwrite($SW_IMEM_ADDR,  $addr);
+    regwrite($SW_IMEM_WDATA, $inst);
+    regwrite($SW_IMEM_WE,    1);
+    tiny_delay();
+    regwrite($SW_IMEM_WE,    0);
+}
+
+# ===============================
+# DMEM write (64-bit split)
+# ===============================
+
+sub dmem_write64 {
+    my ($addr, $data64) = @_;
+
+    my $hi = hex(substr($data64, 0, 8));
+    my $lo = hex(substr($data64, 8, 8));
+
+    regwrite($SW_DMEM_ADDR, $addr);
+    regwrite($SW_DMEM_WLO,  $lo);
+    regwrite($SW_DMEM_WHI,  $hi);
+    regwrite($SW_DMEM_WE,   1);
+    tiny_delay();
+    regwrite($SW_DMEM_WE,   0);
+}
+
+# ===============================
+# Load IMEM
+# ===============================
+
+sub load_imem {
+    my ($file) = @_;
+    open(my $fh, "<", $file) or die "Cannot open $file\n";
+
+    my $addr = 0;
+    while (my $line = <$fh>) {
+        chomp($line);
+        next if $line =~ /^\s*$/;
+
+        my $inst = hex($line);
+        imem_write($addr, $inst);
+        printf("IMEM[%d] <= 0x%08x\n", $addr, $inst);
+        $addr++;
+    }
+    close($fh);
+}
+
+# ===============================
+# Load DMEM
+# ===============================
+
+sub load_dmem {
+    my ($file) = @_;
+    open(my $fh, "<", $file) or die "Cannot open $file\n";
+
+    my $addr = 0;
+    while (my $line = <$fh>) {
+        chomp($line);
+        next if $line =~ /^\s*$/;
+
+        dmem_write64($addr, $line);
+        printf("DMEM[%d] <= %s\n", $addr, $line);
+        $addr++;
+    }
+    close($fh);
+}
+
+sub wait_gpu_done {
+    print "Waiting GPU...\n";
+    sleep(1);  # 简单延时1秒
+}
+# 读取Cbuffer
+sub read_dmem64 {
+    my ($addr) = @_;
+
+    regwrite($SW_DMEM_ADDR, $addr);
+    regwrite($SW_DMEM_WE, 0);
+    tiny_delay();
+
+    my $lo = `regread 0x2000140`;   # HW_DMEM_RLO_REG
+    my $hi = `regread 0x2000144`;   # HW_DMEM_RHI_REG
+
+    my @hex_lo = ($lo =~ /0x([0-9a-fA-F]{8})/g);
+    my @hex_hi = ($hi =~ /0x([0-9a-fA-F]{8})/g);
+
+    return sprintf("%08X%08X", hex($hex_hi[-1]), hex($hex_lo[-1]));
+}
+# print result
+sub dump_result {
+    my ($base, $count) = @_;
+
+    print "\n==== Result C buffer ====\n";
+
+    for (my $i = 0; $i < $count; $i++) {
+        my $addr = $base + $i;
+        my $v = read_dmem64($addr);
+        print "C[$i] = $v\n";
+    }
+}
+
+# ===============================
+# IMEM read
+# ===============================
+
+sub read_imem {
+    my ($addr) = @_;
+
+    regwrite($SW_IMEM_ADDR, $addr);
+    regwrite($SW_IMEM_WE, 0);
+    tiny_delay();
+
+    my $val = `regread 0x2000134`;   # HW_DBG_IR_REG（根据你的映射）
+    my @hex = ($val =~ /0x([0-9a-fA-F]{8})/g);
+
+    return sprintf("%08X", hex($hex[-1]));
+}
+
+# ===============================
+# Main
+# ===============================
+
+if (@ARGV < 2) {
+    print "Usage: $0 inst.hex data.hex\n";
+    exit(1);
+}
+
+my $inst_file = $ARGV[0];
+my $data_file = $ARGV[1];
+
+print "Loading IMEM...\n";
+load_imem($inst_file);
+print "\nVerifying IMEM...\n";
+
+for (my $i = 0; $i < 8; $i++) {
+    my $v = read_imem($i);
+    print "IMEM[$i] = $v\n";
+}
+
+print "\nLoading DMEM...\n";
+load_dmem($data_file);
+
+# ===============================
+# Initialize base addresses
+# ===============================
+
+regwrite($SW_A_BASE, 0);   # a_base = 0
+regwrite($SW_B_BASE, 4);   # b_base = 4
+regwrite($SW_C_BASE, 8);   # c_base = 8
+
+regwrite($SW_N_WORDS, 4);  # example
+
+# ===============================
+# Start GPU
+# ===============================
+
+print "\nStarting GPU...\n";
+regwrite($SW_CONTROL, 1);
+
+wait_gpu_done();
+
+dump_result(8, 4);   # C base = 8, count=4
